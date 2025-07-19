@@ -1,4 +1,4 @@
-#This repository contains the backend code for a role-based attendance management system with Admin, Teacher, and Student functionalities.
+#This repository contains the code for a role-based attendance management system with Admin, Teacher, and Student functionalities.
 
 #Functionalities:
 - JWT-based authentication
