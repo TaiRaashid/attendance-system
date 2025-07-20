@@ -141,3 +141,82 @@ router.get('/:id/students', authenticateToken, authorizeRoles('admin', 'teacher'
 
 
 module.exports = router;
+
+//Delete a course form database
+router.post('/delete', authenticateToken, authorizeRoles("admin"), async(req, res) => {
+
+    const { courseId }  = req.body
+
+  try{
+    const course = await Course.findById(courseId)
+    if(!course){
+      return res.status(404).json({ msg: 'Course not found'});
+    }
+
+    //Delete course from Teacher collection
+    if(course.teacher){
+      await Teacher.findByIdAndUpdate(course.teacher, {
+        $pull: {courses: course._id}
+      })
+    }
+
+    //Delete course from studnet collection
+    if(course.students && course.students.length > 0){
+      await Student.updateMany(
+        {_id: { $in: course.students }},
+        {$pull: {courses: course._id}}
+      )
+    }
+
+    //Delete Attendance record for the course
+    await Attendance.deleteMany({ course: course._id });
+
+    
+    await Course.findByIdAndDelete(courseId);
+
+    res.json({msg: "Course Deleted", deletedCourse: course})
+  }catch(err){
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+})
+
+//Update course data
+router.post('/:courseId/update', authenticateToken, authorizeRoles("admin"), async (req, res) =>{
+  const courseId = req.params.courseId
+  const { title, code} = req.body
+  try {
+
+    if(!title || !code) return res.status(400).json({msg:"Insufficient given data"});
+
+    const course = await Course.findById(courseId);
+    if(!course) return res.status(404).json({ msg: 'Course not found'});
+
+    course.code = code;
+    course.title = title;
+    await course.save();
+
+    res.json({msg: "Course Updated Succesfully"})
+
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+})
+
+//Get all courses
+router.get('/all', authenticateToken, authorizeRoles("admin", "teacher"), async (req, res) => {
+
+  try { 
+    const courses = await Course.find({}).populate({
+      path: 'students',
+      populate: {path: 'user', select: 'name email'}
+    }).populate({
+      path: 'teacher',
+      populate: {path: 'user', select: "name email"}
+    })
+    res.json({msg: "Courses Fetched Succesfully", courses})
+  }
+  catch (err) {
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+
+})
